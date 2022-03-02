@@ -4,7 +4,7 @@ import difflib, http.client, itertools, optparse, random, re, urllib, urllib.par
 NAME, VERSION, AUTHOR, LICENSE = "Damn Small SQLi Scanner (DSSS) < 100 LoC (Lines of Code)", "0.3b", "Miroslav Stampar (@stamparm)", "Public domain (FREE)"
 
 PREFIXES, SUFFIXES = (" ", ") ", "' ", "') "), (
-"", "-- -", "#", "%%16")  # prefix/suffix values used for building testing blind payloads
+    "", "-- -", "#", "%%16")  # prefix/suffix values used for building testing blind payloads
 TAMPER_SQL_CHAR_POOL = ('(', ')', '\'', '"')  # characters used for SQL tampering/poisoning of parameter values
 BOOLEAN_TESTS = ("AND %d=%d", "OR NOT (%d>%d)")  # boolean tests used for building testing blind payloads
 COOKIE, UA, REFERER = "Cookie", "User-Agent", "Referer"  # optional HTTP header names
@@ -19,12 +19,12 @@ DBMS_ERRORS = {  # regular expressions used for DBMS recognition based on error 
     "MySQL": (r"SQL syntax.*MySQL", r"Warning.*mysql_.*", r"valid MySQL result", r"MySqlClient\."),
     "PostgreSQL": (r"PostgreSQL.*ERROR", r"Warning.*\Wpg_.*", r"valid PostgreSQL result", r"Npgsql\."),
     "Microsoft SQL Server": (
-    r"Driver.* SQL[\-\_\ ]*Server", r"OLE DB.* SQL Server", r"(\W|\A)SQL Server.*Driver", r"Warning.*mssql_.*",
-    r"(\W|\A)SQL Server.*[0-9a-fA-F]{8}", r"(?s)Exception.*\WSystem\.Data\.SqlClient\.",
-    r"(?s)Exception.*\WRoadhouse\.Cms\."),
+        r"Driver.* SQL[\-\_\ ]*Server", r"OLE DB.* SQL Server", r"(\W|\A)SQL Server.*Driver", r"Warning.*mssql_.*",
+        r"(\W|\A)SQL Server.*[0-9a-fA-F]{8}", r"(?s)Exception.*\WSystem\.Data\.SqlClient\.",
+        r"(?s)Exception.*\WRoadhouse\.Cms\."),
     "Microsoft Access": (r"Microsoft Access Driver", r"JET Database Engine", r"Access Database Engine"),
     "Oracle": (
-    r"\bORA-[0-9][0-9][0-9][0-9]", r"Oracle error", r"Oracle.*Driver", r"Warning.*\Woci_.*", r"Warning.*\Wora_.*"),
+        r"\bORA-[0-9][0-9][0-9][0-9]", r"Oracle error", r"Oracle.*Driver", r"Warning.*\Woci_.*", r"Warning.*\Wora_.*"),
     "IBM DB2": (r"CLI Driver.*DB2", r"DB2 SQL error", r"\bdb2_\w+\("),
     "SQLite": (r"SQLite/JDBCDriver", r"SQLite.Exception", r"System.Data.SQLite.SQLiteException", r"Warning.*sqlite_.*",
                r"Warning.*SQLite3::", r"\[SQLITE_ERROR\]"),
@@ -70,7 +70,7 @@ def scan_page(url, data=None):
                     if not vulnerable and re.search(regex, content[HTML], re.I) and not re.search(regex, original[HTML],
                                                                                                   re.I):
                         print(" (i) %s parameter '%s' appears to be error SQLi vulnerable (%s)" % (
-                        phase, match.group("parameter"), dbms))
+                            phase, match.group("parameter"), dbms))
                         retval = vulnerable = True
                 vulnerable = False
                 for prefix, boolean, suffix, inline_comment in itertools.product(PREFIXES, BOOLEAN_TESTS, SUFFIXES,
@@ -80,8 +80,9 @@ def scan_page(url, data=None):
                                                                                   "/**/")
                         payloads = dict((_, current.replace(match.group(0), "%s%s" % (match.group(0),
                                                                                       urllib.parse.quote(template % (
-                                                                                      RANDINT if _ else RANDINT + 1,
-                                                                                      RANDINT), safe='%')))) for _ in
+                                                                                          RANDINT if _ else RANDINT + 1,
+                                                                                          RANDINT), safe='%')))) for _
+                                        in
                                         (True, False))
                         contents = dict((_, _retrieve_content(payloads[_], data) if phase is GET else _retrieve_content(
                             url, payloads[_])) for _ in (False, True))
@@ -97,7 +98,7 @@ def scan_page(url, data=None):
                                     ratios.values()) and abs(ratios[True] - ratios[False]) > FUZZY_THRESHOLD / 10
                         if vulnerable:
                             print(" (i) %s parameter '%s' appears to be blind SQLi vulnerable (e.g.: '%s')" % (
-                            phase, match.group("parameter"), payloads[True]))
+                                phase, match.group("parameter"), payloads[True]))
                             retval = True
         if not usable:
             print(" (x) no usable GET/POST parameters found")

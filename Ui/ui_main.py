@@ -11,13 +11,35 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QMainWindow
 
+from thread_part.xss_ui_method import XssThread
+
+
 class UiMainWindow(object):
     def __init__(self):
         self.MainWindow = QMainWindow()
         self.setupUi(self.MainWindow)
 
+        self.xss_thread = None
+
     def show(self):
         self.MainWindow.show()
+
+    def start_xss_thread(self, url, **kwargs):
+        # 创建线程
+        self.xss_thread = XssThread(url, **kwargs)
+        self.xss_thread.res_signal.connect(self.xss_progress)
+        self.xss_thread.end_signal.connect(self.thread_status)
+        # 开始子线程
+        self.xss_thread.start()
+
+    def xss_progress(self, msg):
+        self.xss_scan_result.insertPlainText(msg + '\n')  # 将线程的参数传入进度条
+
+    def thread_status(self, flag):
+        print(flag)
+        self.xss_start_button.setEnabled(flag)
+        self.sql_start_button.setEnabled(flag)
+        self.js_start_button.setEnabled(flag)
 
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")

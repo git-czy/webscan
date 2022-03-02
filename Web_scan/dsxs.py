@@ -7,6 +7,8 @@ import urllib
 import urllib.parse
 import urllib.request
 
+from PyQt5.QtCore import pyqtSignal
+
 NAME, VERSION, AUTHOR, LICENSE = "Damn Small XSS Scanner (DSXS) < 100 LoC (Lines of Code)", "0.3c", "Miroslav Stampar " \
                                                                                                     "(@stamparm)", \
                                  "Public domain (FREE) "
@@ -77,15 +79,18 @@ def _contains(content, chars):
     return all(char in content for char in chars)
 
 
-def scan_page(url, data=None):
+def scan_page(url, res_signal: pyqtSignal(str), data=None):
+    res_signal.emit("i‘m QThread")
     retval, usable = False, False
     url, data = re.sub(r"=(&|\Z)", "=1\g<1>", url) if url else url, re.sub(r"=(&|\Z)", "=1\g<1>",
                                                                            data) if data else data
     original = re.sub(DOM_FILTER_REGEX, "", _retrieve_content(url, data))
     dom = next(filter(None, (re.search(_, original) for _ in DOM_PATTERNS)), None)
     if dom:
-        print(" (i) page itself appears to be XSS vulnerable (DOM)")
-        print("  (o) ...%s..." % dom.group(0))
+        # print(" (i) page itself appears to be XSS vulnerable (DOM)")
+        # print("  (o) ...%s..." % dom.group(0))
+        res_signal.emit(" (i) page itself appears to be XSS vulnerable (DOM)")
+        res_signal.emit("  (o) ...%s..." % dom.group(0))
         retval = True
     try:
         for phase in (GET, POST):
@@ -93,6 +98,7 @@ def scan_page(url, data=None):
             for match in re.finditer(r"((\A|[?&])(?P<parameter>[\w\[\]]+)=)(?P<value>[^&#]*)", current):
                 found, usable = False, True
                 print("* scanning %s parameter '%s'" % (phase, match.group("parameter")))
+                res_signal.emit("* scanning %s parameter '%s'" % (phase, match.group("parameter")))
                 prefix, suffix = ("".join(random.sample(string.ascii_lowercase, PREFIX_SUFFIX_LENGTH)) for i in
                                   range(2))
                 for pool in (LARGER_CHAR_POOL, SMALLER_CHAR_POOL):
@@ -114,12 +120,19 @@ def scan_page(url, data=None):
                                         print(" (i) %s parameter '%s' appears to be XSS vulnerable (%s)" % (
                                             phase, match.group("parameter"), info % dict((("filtering", "no" if all(
                                                 char in sample.group(1) for char in LARGER_CHAR_POOL) else "some"),))))
+
+                                        res_signal.emit(" (i) %s parameter '%s' appears to be XSS vulnerable (%s)" % (
+                                            phase, match.group("parameter"), info % dict((("filtering", "no" if all(
+                                                char in sample.group(1) for char in LARGER_CHAR_POOL) else "some"),))))
+
                                         found = retval = True
                                     break
         if not usable:
             print(" (x) no usable GET/POST parameters found")
+            res_signal.emit(" (x) no usable GET/POST parameters found")
     except KeyboardInterrupt:
         print("\r (x) Ctrl-C pressed")
+        res_signal.emit("\r (x) Ctrl-C pressed")
     return retval
 
 
@@ -128,6 +141,18 @@ def init_options(proxy=None, cookie=None, ua=None, referer=None):
     _headers = dict(filter(lambda _: _[1], ((COOKIE, cookie), (UA, ua or NAME), (REFERER, referer))))
     urllib.request.install_opener(
         urllib.request.build_opener(urllib.request.ProxyHandler({'http': proxy})) if proxy else None)
+
+
+def xss_main(url, res_signal: pyqtSignal(str), **kwargs):
+    data = kwargs.get("data", None)
+    ua = kwargs.get("ua", None)
+    referer = kwargs.get("referer", None)
+    proxy = kwargs.get("proxy", None)
+    cookie = kwargs.get("cookie", None)
+
+    init_options(proxy, cookie, ua, referer)
+    scan_page(url if url.startswith("http") else "http://%s" % url, res_signal, data)
+    res_signal.emit('end of xss scan ! ')
 
 
 if __name__ == "__main__":
