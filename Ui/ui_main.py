@@ -12,6 +12,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QMainWindow
 
 from thread_part.xss_ui_method import XssThread
+from thread_part.sql_ui_method import SqlThread
 
 
 class UiMainWindow(object):
@@ -20,11 +21,26 @@ class UiMainWindow(object):
         self.setupUi(self.MainWindow)
 
         self.xss_thread = None
+        self.sql_thread = None
+        self.js_thread = None
 
     def show(self):
         self.MainWindow.show()
 
-    def start_xss_thread(self, url, **kwargs):
+    # 定义SQL线程创建函数
+    def start_sql_thread(self, url, **kwargs):  # 魔法变量（**kwargs）处理不定长度键值对
+        # 创建线程
+        self.sql_thread = SqlThread(url, **kwargs)
+        self.sql_thread.res_signal.connect(self.sql_progress)
+        self.sql_thread.end_signal.connect(self.thread_status)
+        # 开始子线程
+        self.sql_thread.start()
+
+    def sql_progress(self, msg):
+        self.sql_scan_result.insertPlainText(msg + '\n')  # 将线程的参数传入结果框，实时UI显示结果
+
+    # 定义XSS线程创建函数
+    def start_xss_thread(self, url, **kwargs):  # 魔法变量（**kwargs）处理不定长度键值对
         # 创建线程
         self.xss_thread = XssThread(url, **kwargs)
         self.xss_thread.res_signal.connect(self.xss_progress)
@@ -33,10 +49,10 @@ class UiMainWindow(object):
         self.xss_thread.start()
 
     def xss_progress(self, msg):
-        self.xss_scan_result.insertPlainText(msg + '\n')  # 将线程的参数传入进度条
+        self.xss_scan_result.insertPlainText(msg + '\n')  # 将线程的参数传入结果框，实时UI显示结果
 
     def thread_status(self, flag):
-        print(flag)
+        # print(flag)
         self.xss_start_button.setEnabled(flag)
         self.sql_start_button.setEnabled(flag)
         self.js_start_button.setEnabled(flag)

@@ -1,5 +1,5 @@
-#!/usr/bin/python3
-import optparse  # Python 3 required
+# Python 3 required
+import optparse
 import random
 import re
 import string
@@ -80,15 +80,15 @@ def _contains(content, chars):
 
 
 def scan_page(url, res_signal: pyqtSignal(str), data=None):
-    res_signal.emit("i‘m QThread")
+    # res_signal.emit("i‘m QThread")
     retval, usable = False, False
     url, data = re.sub(r"=(&|\Z)", "=1\g<1>", url) if url else url, re.sub(r"=(&|\Z)", "=1\g<1>",
                                                                            data) if data else data
     original = re.sub(DOM_FILTER_REGEX, "", _retrieve_content(url, data))
     dom = next(filter(None, (re.search(_, original) for _ in DOM_PATTERNS)), None)
     if dom:
-        # print(" (i) page itself appears to be XSS vulnerable (DOM)")
-        # print("  (o) ...%s..." % dom.group(0))
+        print(" (i) page itself appears to be XSS vulnerable (DOM)")
+        print("  (o) ...%s..." % dom.group(0))
         res_signal.emit(" (i) page itself appears to be XSS vulnerable (DOM)")
         res_signal.emit("  (o) ...%s..." % dom.group(0))
         retval = True
@@ -117,10 +117,7 @@ def scan_page(url, res_signal: pyqtSignal(str), data=None):
                                 context = re.search(regex % {"chars": re.escape(sample.group(0))}, filtered, re.I)
                                 if context and not found and sample.group(1).strip():
                                     if _contains(sample.group(1), condition):
-                                        print(" (i) %s parameter '%s' appears to be XSS vulnerable (%s)" % (
-                                            phase, match.group("parameter"), info % dict((("filtering", "no" if all(
-                                                char in sample.group(1) for char in LARGER_CHAR_POOL) else "some"),))))
-
+                                        print(" (i) %s parameter '%s' appears to be XSS vulnerable (%s)" % (phase, match.group("parameter"), info % dict((("filtering", "no" if all(char in sample.group(1) for char in LARGER_CHAR_POOL) else "some"),))))
                                         res_signal.emit(" (i) %s parameter '%s' appears to be XSS vulnerable (%s)" % (
                                             phase, match.group("parameter"), info % dict((("filtering", "no" if all(
                                                 char in sample.group(1) for char in LARGER_CHAR_POOL) else "some"),))))
@@ -151,7 +148,9 @@ def xss_main(url, res_signal: pyqtSignal(str), **kwargs):
     cookie = kwargs.get("cookie", None)
 
     init_options(proxy, cookie, ua, referer)
-    scan_page(url if url.startswith("http") else "http://%s" % url, res_signal, data)
+    result = scan_page(url if url.startswith("http") else "http://%s" % url, res_signal, data)
+    print("\nscan results: %s vulnerabilities found" % ("possible" if result else "no"))
+    res_signal.emit("\nscan results: %s vulnerabilities found" % ("possible" if result else "no"))
     res_signal.emit('end of xss scan ! ')
 
 

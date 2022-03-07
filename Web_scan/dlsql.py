@@ -1,5 +1,14 @@
-#!/usr/bin/python3
-import difflib, http.client, itertools, optparse, random, re, urllib, urllib.parse, urllib.request  # Python 3 required
+# Python 3 required
+import difflib
+import http.client
+import itertools
+import optparse
+import random
+import re
+import urllib
+import urllib.parse
+import urllib.request
+from PyQt5.QtCore import pyqtSignal
 
 NAME, VERSION, AUTHOR, LICENSE = "Damn Small SQLi Scanner (DSSS) < 100 LoC (Lines of Code)", "0.3b", "Miroslav Stampar (@stamparm)", "Public domain (FREE)"
 
@@ -13,7 +22,8 @@ TEXT, HTTPCODE, TITLE, HTML = range(4)  # enumerator-like values used for markin
 FUZZY_THRESHOLD = 0.95  # ratio value in range (0,1) used for distinguishing True from False responses
 TIMEOUT = 30  # connection timeout in seconds
 RANDINT = random.randint(1, 255)  # random integer value used across all tests
-BLOCKED_IP_REGEX = r"(?i)(\A|\b)IP\b.*\b(banned|blocked|bl(a|o)ck\s?list|firewall)"  # regular expression used for recognition of generic firewall blocking messages
+# regular expression used for recognition of generic firewall blocking messages
+BLOCKED_IP_REGEX = r"(?i)(\A|\b)IP\b.*\b(banned|blocked|bl(a|o)ck\s?list|firewall)"
 
 DBMS_ERRORS = {  # regular expressions used for DBMS recognition based on error message response
     "MySQL": (r"SQL syntax.*MySQL", r"Warning.*mysql_.*", r"valid MySQL result", r"MySqlClient\."),
@@ -51,7 +61,8 @@ def _retrieve_content(url, data=None):
     return retval
 
 
-def scan_page(url, data=None):
+def scan_page(url, res_signal: pyqtSignal(str), data=None):
+    # res_signal.emit("i‘m QThread")
     retval, usable = False, False
     url, data = re.sub(r"=(&|\Z)", "=1\g<1>", url) if url else url, re.sub(r"=(&|\Z)", "=1\g<1>",
                                                                            data) if data else data
@@ -61,6 +72,7 @@ def scan_page(url, data=None):
             for match in re.finditer(r"((\A|[?&])(?P<parameter>[^_]\w*)=)(?P<value>[^&#]+)", current):
                 vulnerable, usable = False, True
                 print("* scanning %s parameter '%s'" % (phase, match.group("parameter")))
+                res_signal.emit("* scanning %s parameter '%s'" % (phase, match.group("parameter")))
                 original = original or (
                     _retrieve_content(current, data) if phase is GET else _retrieve_content(url, current))
                 tampered = current.replace(match.group(0), "%s%s" % (match.group(0), urllib.parse.quote(
@@ -69,8 +81,8 @@ def scan_page(url, data=None):
                 for (dbms, regex) in ((dbms, regex) for dbms in DBMS_ERRORS for regex in DBMS_ERRORS[dbms]):
                     if not vulnerable and re.search(regex, content[HTML], re.I) and not re.search(regex, original[HTML],
                                                                                                   re.I):
-                        print(" (i) %s parameter '%s' appears to be error SQLi vulnerable (%s)" % (
-                            phase, match.group("parameter"), dbms))
+                        print(" (i) %s parameter '%s' appears to be error SQLi vulnerable (%s)" % (phase, match.group("parameter"), dbms))
+                        res_signal.emit(" (i) %s parameter '%s' appears to be error SQLi vulnerable (%s)" % (phase, match.group("parameter"), dbms))
                         retval = vulnerable = True
                 vulnerable = False
                 for prefix, boolean, suffix, inline_comment in itertools.product(PREFIXES, BOOLEAN_TESTS, SUFFIXES,
@@ -97,13 +109,15 @@ def scan_page(url, data=None):
                                 vulnerable = all(ratios.values()) and min(ratios.values()) < FUZZY_THRESHOLD < max(
                                     ratios.values()) and abs(ratios[True] - ratios[False]) > FUZZY_THRESHOLD / 10
                         if vulnerable:
-                            print(" (i) %s parameter '%s' appears to be blind SQLi vulnerable (e.g.: '%s')" % (
-                                phase, match.group("parameter"), payloads[True]))
+                            print(" (i) %s parameter '%s' appears to be blind SQLi vulnerable (e.g.: '%s')" % (phase, match.group("parameter"), payloads[True]))
+                            res_signal.emit(" (i) %s parameter '%s' appears to be blind SQLi vulnerable (e.g.: '%s')" % (phase, match.group("parameter"), payloads[True]))
                             retval = True
         if not usable:
             print(" (x) no usable GET/POST parameters found")
+            res_signal.emit(" (x) no usable GET/POST parameters found")
     except KeyboardInterrupt:
         print("\r (x) Ctrl-C pressed")
+        res_signal.emit("\r (x) Ctrl-C pressed")
     return retval
 
 
@@ -111,6 +125,20 @@ def init_options(proxy=None, cookie=None, ua=None, referer=None):
     globals()["_headers"] = dict(filter(lambda _: _[1], ((COOKIE, cookie), (UA, ua or NAME), (REFERER, referer))))
     urllib.request.install_opener(
         urllib.request.build_opener(urllib.request.ProxyHandler({'http': proxy})) if proxy else None)
+
+
+def sql_main(url, res_signal: pyqtSignal(str), **kwargs):
+    data = kwargs.get("data", None)
+    ua = kwargs.get("ua", None)
+    referer = kwargs.get("referer", None)
+    proxy = kwargs.get("proxy", None)
+    cookie = kwargs.get("cookie", None)
+
+    init_options(proxy, cookie, ua, referer)
+    result = scan_page(url if url.startswith("http") else "http://%s" % url, res_signal, data)
+    print("\nscan results: %s vulnerabilities found" % ("possible" if result else "no"))
+    res_signal.emit("\nscan results: %s vulnerabilities found" % ("possible" if result else "no"))
+    res_signal.emit('end of sql scan ! ')
 
 
 if __name__ == "__main__":
