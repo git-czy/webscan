@@ -1,6 +1,17 @@
-#!/usr/bin/env python
-import distutils.version, glob, hashlib, json, optparse, os, re, ssl, tempfile, urllib, urllib.parse, \
-    urllib.request  # Python 3 required
+# Python 3 required
+import distutils.version
+import glob
+import hashlib
+import json
+import optparse
+import os
+import re
+import ssl
+import tempfile
+import urllib
+import urllib.parse
+import urllib.request
+from PyQt5.QtCore import pyqtSignal
 
 NAME, VERSION, AUTHOR, LICENSE, COMMENT = "Damn Small JS Scanner (DSJS) < 100 LoC (Lines of Code)", "0.2b", "Miroslav Stampar (@stamparm)", "Public domain (FREE)", "(derivative work from Retire.js - https://bekk.github.io/retire.js/)"
 
@@ -39,7 +50,7 @@ def _get_definitions():
     return json.loads(content)
 
 
-def scan_page(url):
+def scan_page(url, res_signal: pyqtSignal(str)):
     retval = False
     try:
         hashes = dict()
@@ -82,9 +93,15 @@ def scan_page(url):
                             print(" [x] %s %sv%s (< v%s) (info: '%s')" % (
                                 library, ("" if not _ else "(v%s <) " % _), version.replace(".min", ""),
                                 vulnerability["below"], "; ".join(vulnerability["info"])))
+                            res_signal.emit(" [x] %s %sv%s (< v%s) (info: '%s')" % (
+                                library, ("" if not _ else "(v%s <) " % _), version.replace(".min", ""),
+                                vulnerability["below"], "; ".join(vulnerability["info"])))
                             retval = True
     except KeyboardInterrupt:
         print("\r (x) Ctrl-C pressed")
+        res_signal.emit("\r (x) Ctrl-C pressed")
+    except Exception as e:
+        print(e.args)
     return retval
 
 
@@ -93,6 +110,21 @@ def init_options(proxy=None, cookie=None, ua=None, referer=None):
     _headers = dict(filter(lambda _: _[1], ((COOKIE, cookie), (UA, ua or NAME), (REFERER, referer))))
     urllib.request.install_opener(
         urllib.request.build_opener(urllib.request.ProxyHandler({'http': proxy})) if proxy else None)
+
+
+def js_main(url, res_signal: pyqtSignal(str), **kwargs):
+    # data = kwargs.get("data", None)
+    # res_signal.emit('123')
+    ua = kwargs.get("ua", None)
+    referer = kwargs.get("referer", None)
+    proxy = kwargs.get("proxy", None)
+    cookie = kwargs.get("cookie", None)
+
+    init_options(proxy, cookie, ua, referer)
+    result = scan_page(url if url.startswith("http") else "http://%s" % url, res_signal)
+    print("\nscan results: %s vulnerabilities found" % ("possible" if result else "no"))
+    res_signal.emit("\nscan results: %s vulnerabilities found" % ("possible" if result else "no"))
+    res_signal.emit('end of js scan ! ')
 
 
 if __name__ == "__main__":

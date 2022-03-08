@@ -10,9 +10,9 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QMainWindow
-
-from thread_part.xss_ui_method import XssThread
 from thread_part.sql_ui_method import SqlThread
+from thread_part.xss_ui_method import XssThread
+from thread_part.js_ui_method import JsThread
 
 
 class UiMainWindow(object):
@@ -50,6 +50,20 @@ class UiMainWindow(object):
 
     def xss_progress(self, msg):
         self.xss_scan_result.insertPlainText(msg + '\n')  # 将线程的参数传入结果框，实时UI显示结果
+
+    # 定义JS线程创建函数
+
+    def start_js_thread(self, url, **kwargs):  # 魔法变量（**kwargs）处理不定长度键值对
+        # 创建线程
+        self.js_thread = JsThread(url, **kwargs)
+        self.js_thread.res_signal.connect(self.js_progress)
+        self.js_thread.end_signal.connect(self.thread_status)
+        # 开始子线程
+        self.js_thread.start()
+
+    def js_progress(self, msg):
+        # print(msg)
+        self.js_scan_result.insertPlainText(msg + '\n')  # 将线程的参数传入结果框，实时UI显示结果
 
     def thread_status(self, flag):
         # print(flag)
